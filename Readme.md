@@ -1,3 +1,7 @@
 
 # install dependency
-1. npm i elliptic
+> npm i elliptic
+
+
+# run
+> node ecies.js
