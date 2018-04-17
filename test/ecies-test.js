@@ -23,8 +23,6 @@ describe('ecies', function() {
     }
 
     it('check self correctness', function() {
-        // assert.equal(hash.sha256.blockSize, 512);
-        // assert.equal(hash.sha256.outSize, 256);
         test(ecies, [
             "",
             "hello world",

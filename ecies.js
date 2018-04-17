@@ -9,13 +9,13 @@ const EC = require('elliptic').ec;
 let ec = new EC('curve25519');
 
 let ecies = {
+    alg: "aes-256-cbc",
+    hash: "sha256",
     keyPair: null,
 };
 // when Alice want to send message to Bob
 ecies.enc = function (H, msg, iv) {
     let publicB = ec.keyFromPublic(H,"hex").getPublic();
-    // let privateA = this.keyPair.getPrivate();
-    // let publicA = this.keyPair.getPublic();
 
     // Alice use Bob's public key to calculate hTilde = [privateA]*publicA
     // Alice use her public key as gTlide
@@ -26,12 +26,12 @@ ecies.enc = function (H, msg, iv) {
     let PEH = hTilde.getX().toString('hex');
 
     // Alice calculate derivedKey for aes enc
-    let derivedKey = crypto.pbkdf2Sync(out, PEH, 10086, 32, 'sha256');
+    let derivedKey = crypto.pbkdf2Sync(out, PEH, 10086, 32, this.hash);
 
     // Alice use aes encryption to encrypt message.
     iv  =   iv  || crypto.randomBytes(16);
 
-    let algorithm = "aes-256-cbc";
+    let algorithm = this.alg;
     let cipher = crypto.createCipheriv(algorithm, derivedKey, iv);
     let msg_cxt = cipher.update(msg, 'utf8', 'hex');
     msg_cxt += cipher.final('hex');
@@ -54,20 +54,16 @@ ecies.dec = function (msg_cxt, out, iv) {
     let _PEH = _hTilde.getX().toString('hex');
 
     // Bob calculate derivedKey for aes dec
-    let _derivedKey = crypto.pbkdf2Sync(out, _PEH, 10086, 32, 'sha256');
+    let _derivedKey = crypto.pbkdf2Sync(out, _PEH, 10086, 32, this.hash);
 
     // Bob use aes decryption to decrypt cipher text.
     let _iv  =   iv  || function () { console.error("iv is missed!");  };
-    let _algorithm = "aes-256-cbc";
+    let _algorithm = this.alg;
     let decipher = crypto.createDecipheriv(_algorithm, _derivedKey, _iv);
     let plain = decipher.update(msg_cxt, 'hex', 'utf8');
     plain += decipher.final('utf8');
 
     return plain
-};
-
-ecies.setKeyPair = function (privHex) {
-    this.keyPair = ec.keyFromPrivate(privHex,"hex");
 };
 
 ecies.generateKeyPair = function () {
@@ -78,11 +74,31 @@ ecies.generateKeyPair = function () {
     }
 };
 
+ecies.setKeyPair = function (privHex) {
+    this.keyPair = ec.keyFromPrivate(privHex,"hex");
+};
+
 ecies.getKeyPair = function () {
     return  {
         priv: this.keyPair.getPrivate("hex"),
         pub: this.keyPair.getPublic("hex"),
     }
+};
+
+ecies.setCurve = function (curve) {
+    ec = new EC(curve);
+};
+
+ecies.getCurve = function () {
+    return ec.curve;
+};
+
+ecies.setHash = function (h) {
+    this.hash = h;
+};
+
+ecies.getHash = function () {
+    return this.hash;
 };
 
 exports.ecies = ecies;
