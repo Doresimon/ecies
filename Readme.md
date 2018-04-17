@@ -3,5 +3,5 @@
 > npm i elliptic
 
 
-# run
-> node ecies.js
+# use
+> const ecies = require('./ecies').ecies;
