@@ -12,11 +12,20 @@ describe('ecies', function() {
             let keyA = ecies.generateKeyPair();
             let msg = cases[i];
             // let iv = ""
+
+
+            ecies.setKeyPair(keyA.priv);
             let cxt = ecies.enc(keyB.pub, msg);
+
 
 
             ecies.setKeyPair(keyB.priv);
             let plain = ecies.dec(cxt.msg_cxt, cxt.out,  cxt.iv);
+
+            console.log("************************************");
+            console.log("msg: ",msg);
+            console.log("cxt: ",cxt);
+            console.log("plain: ",plain);
 
             assert.equal(plain, msg);
         }
@@ -25,8 +34,10 @@ describe('ecies', function() {
     it('check self correctness', function() {
         test(ecies, [
             "",
+            "12345",
             "hello world",
             "qwertyuiopasdfghjklzxcvbnm1234567890",
+            "一去二三里",
         ]);
     });
 });

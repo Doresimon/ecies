@@ -1,70 +1,96 @@
 'use strict';
 
+//dependency
 const Buffer = require('buffer').Buffer;
 const crypto = require('crypto');
 const EC = require('elliptic').ec;
 const pkcs7 = require('pkcs7');
+const textEncoding = require('text-encoding');
+
+// Create and initialize EC context
+// (better do it once and reuse it)
+let ec = new EC('curve25519');
 
 let ecies = {
     alg: "aes-256-cbc",
     hash: "sha256",
     code: "ascii",
     DigestSize: 32,
-    keyFormat: "hex",
     iv: "",
-    ec: null,
     keyPair: null,
 };
-ecies.ec = new EC('curve25519');
 ecies.iv = crypto.randomBytes(16);
 
+// when Alice want to send message to Bob
 ecies.enc = function (H, msg, iv) {
-    let publicB = ecies.ec.keyFromPublic(H,"hex").getPublic();
+    let publicB = ec.keyFromPublic(H,"hex").getPublic();
 
+    // Alice use Bob's public key to calculate hTilde = [privateA]*publicA
+    // Alice use her public key as gTlide
     let gTilde = this.keyPair.getPublic();
     let hTilde = publicB.mul(this.keyPair.getPrivate());
 
     let out = gTilde.encode('hex');
     let PEH = hTilde.getX().toString('hex');
 
+    // Alice calculate derivedKey for aes enc
+    // let derivedKey = crypto.pbkdf2Sync(out, PEH, 10086, 32, this.hash);
     let derivedKeyArray = kdf2(out+PEH, 256, ecies.DigestSize, ecies.hash);
     let derivedKey = Buffer.from(derivedKeyArray[0],"utf8");
 
+    // Alice use aes encryption to encrypt message.
+    // iv  =   iv  || crypto.randomBytes(16);
     iv  =   iv  || ecies.iv;
 
     let algorithm = this.alg;
     let cipher = crypto.createCipheriv(algorithm, derivedKey, iv);
     cipher.setAutoPadding(false);
 
-    let msg_cxt = cipher.update(Buffer.from(pkcs7.pad(Buffer.from(msg,"utf8"))), "utf8", 'hex') + cipher.final("hex");
+    let bf = Buffer.from(msg,"utf8");
+    // let paddingMsg = pkcs7.pad(bf);  //ok
+
+    let msg_cxt = cipher.update(Buffer.from(pkcs7.pad(bf)), "utf8", 'hex');
+    msg_cxt += cipher.final('hex');
+
+    console.log("msg_cxt:  ", msg_cxt);
 
     return {
-        iv:iv.toString("hex"),
+        iv:iv,
         out:out,
         msg_cxt:msg_cxt,
     };
 };
 
 ecies.dec = function (msg_cxt, out, iv) {
-    let _gTilde = ecies.ec.keyFromPublic(out,"hex").getPublic();
+    // when Bob receives the 1,2,3 sent from Alice
+    // bob decodes out to get gTlide
+    let _gTilde = ec.keyFromPublic(out,"hex").getPublic();
 
+    // Bob calculate _hTlide with his privateB and _gTlide
+    // Bob calculate _PEH from _hTlide
     let _hTilde = _gTilde.mul(this.keyPair.getPrivate());
     let _PEH = _hTilde.getX().toString('hex');
 
+    // Bob calculate derivedKey for aes dec
+    // let _derivedKey = crypto.pbkdf2Sync(out, _PEH, 10086, 32, this.hash);
     let _derivedKeyArray = kdf2(out+_PEH, 256, ecies.DigestSize, ecies.hash);
     let _derivedKey = Buffer.from(_derivedKeyArray[0],"utf8");
 
-    let _iv  =   Buffer.from(iv,"hex")  || function () { console.error("iv is missed!");  };
+    // Bob use aes decryption to decrypt cipher text.
+    let _iv  =   iv  || function () { console.error("iv is missed!");  };
     let _algorithm = this.alg;
     let decipher = crypto.createDecipheriv(_algorithm, _derivedKey, _iv);
     decipher.setAutoPadding(false);
-    let plain = decipher.update(msg_cxt, 'hex', "utf8") + decipher.final("utf8");
+    console.log("msg_cxt:  ", msg_cxt);
+    let plain = decipher.update(msg_cxt, 'hex', "utf8");
+    plain += decipher.final('utf8');
+    // let bf = Buffer.from(plain,"utf8");
 
-    return Buffer.from( pkcs7.unpad( Buffer.from( plain,"utf8" ) ) ).toString("utf8")
+    return Buffer.from( pkcs7.unpad( Buffer.from( plain,"utf8"))).toString("utf8")
 };
 
 ecies.generateKeyPair = function () {
-    this.keyPair = ecies.ec.genKeyPair();
+    this.keyPair = ec.genKeyPair();
     return  {
         priv: this.keyPair.getPrivate("hex"),
         pub: this.keyPair.getPublic("hex"),
@@ -72,7 +98,7 @@ ecies.generateKeyPair = function () {
 };
 
 ecies.setKeyPair = function (privHex) {
-    this.keyPair = ecies.ec.keyFromPrivate(privHex,"hex");
+    this.keyPair = ec.keyFromPrivate(privHex,"hex");
 };
 
 ecies.getKeyPair = function () {
@@ -83,25 +109,26 @@ ecies.getKeyPair = function () {
 };
 
 ecies.setCurve = function (curve) {
-    ecies.ec = new EC(curve);
+    ec = new EC(curve);
 };
 
 ecies.getCurve = function () {
-    return ecies.ec.curve;
+    return ec.curve;
 };
 
-ecies.setHash = function (hashFunc) {
-    this.hash = hashFunc;
+ecies.setHash = function (h) {
+    this.hash = h;
 };
 
 ecies.getHash = function () {
     return this.hash;
 };
 
-/* utils */
-function kdf2(seed, len, DigestSize, hashFunc) {
-    if (len<0) return null;
-    let l_byte = Math.ceil(len/8);
+// @s string
+// @l: bit size of output key.
+function kdf2(s, l, DigestSize, hashFunc) {
+    if (l<0) return null;
+    let l_byte = Math.ceil(l/8);
 
     let b = Math.ceil(l_byte/DigestSize);
     let counter = 1; //1 for pbkdf2, 0 for pbkdf1
@@ -110,14 +137,15 @@ function kdf2(seed, len, DigestSize, hashFunc) {
 
     while(counter < b){
         let hash = crypto.createHash(hashFunc);
-        key[counter-1] = hash.update(seed+I2OSP(counter,4)).digest().toString("ascii", 0, DigestSize);  //must be ascii
+        key[counter-1] = hash.update(s+I2OSP(counter,4)).digest().toString("ascii", 0, DigestSize);  //must be ascii
         counter++
     }
     let hash = crypto.createHash(hashFunc);
-    key[counter-1] = hash.update(seed+I2OSP(counter,4)).digest().toString("ascii", 0, offset);
+    key[counter-1] = hash.update(s+I2OSP(counter,4)).digest().toString("ascii", 0, offset);
     return key
 }
 
+//an int number to buffer
 function I2OSP(m, l) {
     let buf = Buffer.allocUnsafe(l);
     buf.writeUIntBE(m, 0, l);
