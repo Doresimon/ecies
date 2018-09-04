@@ -1,0 +1,27 @@
+{
+  "name": "ecies",
+  "version": "1.0.0",
+  "description": "> npm i elliptic",
+  "main": "ecies.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "elliptic": "^6.4.1",
+    "pkcs7": "^1.0.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Doresimon/ecies.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Doresimon/ecies/issues"
+  },
+  "homepage": "https://github.com/Doresimon/ecies#readme"
+}
