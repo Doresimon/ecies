@@ -7,12 +7,33 @@
     "test": "test"
   },
   "dependencies": {
+    "@types/node": "^10.12.18",
     "elliptic": "^6.4.1",
+    "gulp": "^4.0.0",
+    "gulp-typescript": "^5.0.0",
     "pkcs7": "^1.0.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/jest": "^23.3.12",
+    "jest": "^23.6.0",
+    "ts-jest": "^23.10.5",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.2.2"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js"
+    ],
+    "transform": {
+      "\\.(ts|tsx)$": "./node_modules/ts-jest/preprocessor.js"
+    },
+    "testEnvironment": "node",
+    "testRegex": "/test/.*\\.(ts|tsx|js)$"
   },
   "repository": {
     "type": "git",

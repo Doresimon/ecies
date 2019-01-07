@@ -99,29 +99,31 @@ ecies.getHash = function () {
 };
 
 /* utils */
-function kdf2(seed, len, DigestSize, hashFunc) {
-    if (len<0) return null;
-    let l_byte = Math.ceil(len/8);
+function kdf2(seed, bit_length, digest_byte_size, hash_func_name) {
+    if (bit_length<0) return null;
+    let l_byte = Math.ceil(bit_length/8);
 
-    let b = Math.ceil(l_byte/DigestSize);
+    let b = Math.ceil(l_byte/digest_byte_size);
     let counter = 1; //1 for pbkdf2, 0 for pbkdf1
     let key = [];
-    let offset = l_byte - (b-1)*DigestSize; //byte offset
+    let offset = l_byte - (b-1)*digest_byte_size; //byte offset
 
     while(counter < b){
-        let hash = crypto.createHash(hashFunc);
-        key[counter-1] = hash.update(seed+I2OSP(counter,4)).digest().toString("ascii", 0, DigestSize);  //must be ascii
+        let hash = crypto.createHash(hash_func_name);
+        key[counter-1] = hash.update(seed+I2OSP(counter, 4)).digest().toString("ascii", 0, digest_byte_size);  //must be ascii
         counter++
     }
-    let hash = crypto.createHash(hashFunc);
-    key[counter-1] = hash.update(seed+I2OSP(counter,4)).digest().toString("ascii", 0, offset);
+    let hash = crypto.createHash(hash_func_name);
+    key[counter-1] = hash.update(seed+I2OSP(counter, 4)).digest().toString("ascii", 0, offset);
     return key
 }
+
+ecies.kdf = kdf2;
 
 function I2OSP(m, l) {
     let buf = Buffer.allocUnsafe(l);
     buf.writeUIntBE(m, 0, l);
-    return buf.toString("ascii")
+    return buf.toString("ascii");
 }
 
 exports.ecies = ecies;
